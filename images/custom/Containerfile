@@ -98,8 +98,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # apps.json includes
+ARG APPS_JSON
 ARG APPS_JSON_BASE64
-RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
+RUN if [ -n "${APPS_JSON}" ] && [ -z "${APPS_JSON_BASE64}" ]; then \
+    APPS_JSON_BASE64="$(echo ${APPS_JSON} | base64 -w 0)"; \
+  fi; \
+  if [ -n "${APPS_JSON_BASE64}" ]; then \
     mkdir /opt/frappe && echo "${APPS_JSON_BASE64}" | base64 -d > /opt/frappe/apps.json; \
   fi
 
@@ -108,7 +112,7 @@ USER frappe
 ARG FRAPPE_BRANCH=version-15
 ARG FRAPPE_PATH=https://github.com/frappe/frappe
 RUN export APP_INSTALL_ARGS="" && \
-  if [ -n "${APPS_JSON_BASE64}" ]; then \
+  if [ -n "${APPS_JSON_BASE64}" ] || [ -n "${APPS_JSON}"; then \
     export APP_INSTALL_ARGS="--apps_path=/opt/frappe/apps.json"; \
   fi && \
   bench init ${APP_INSTALL_ARGS}\

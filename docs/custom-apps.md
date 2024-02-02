@@ -38,6 +38,7 @@ Note:
 - `url` needs to be http(s) git url with token/auth in case of private repo.
 - add dependencies manually in `apps.json` e.g. add `payments` if you are installing `erpnext`
 - use fork repo or branch for ERPNext in case you need to use your fork or test a PR.
+- Converting APPS_JSON to base64 is now optional.
 
 ### Build Image
 
@@ -60,6 +61,55 @@ Note:
 - Make sure the `--tag` is valid image name that will be pushed to registry. See section [below](#use-images) for remarks about its use.
 - Change `--build-arg` as per version of Python, NodeJS, Frappe Framework repo and branch
 - `.git` directories for all apps are removed from the image.
+
+If you use `docker compose build`, you can add a build section to your docker
+compose file's `x-customizable-image` block, eg.:
+
+```yaml
+x-customizable-image: &customizable_image
+  # By default the image used only contains the `frappe` and `erpnext` apps.
+  # See https://github.com/frappe/frappe_docker/blob/main/docs/custom-apps.md
+  # about using custom images.
+  image: frappe/erpnext:${ERPNEXT_VERSION:?No ERPNext version set}
+  build:
+
+    context: https://github.com/frappe/frappe_docker.git
+    dockerfile: images/custom/Containerfile
+    tags:
+      ghcr.io/user/repo/custom: 1.0.0
+
+    args:
+      # To use APPS_JSON_BASE64, the environment variable has to be populated
+      # in the host shell, by piping an apps.json file to `base64 -w 0`.
+      #APPS_JSON_BASE64: ${APPS_JSON_BASE64:-}
+
+      # APPS_JSON is converted to APPS_JSON_BASE64 in the Containerfile
+      APPS_JSON: |-
+        [
+          {
+            "url": "https://github.com/frappe/erpnext",
+            "branch": "version-15"
+          },
+          {
+            # With the ssh-agent configured, access to private repo's can be done through:
+            "url": "git@github.com:path/to/my-private-rep.git",
+
+            # Or, access to private keys with API keys can be done with an https URL:
+            #"url": "https://<user>:<api_key>@github.com/path/to/my-private-repo.git",
+
+            "branch": "main"
+          }
+        ]
+
+      # Some other args in the Containerfile. Only uncomment if valid.
+      #FRAPPE_BRANCH: ${FRAPPE_BRANCH:-}
+      #NODE_VERSION: ${NODE_VERSION:-}
+
+    # mount the default host's ssh agent, for easy access to private repos.
+    ssh:
+      - default 
+```
+
 
 ### Push image to use in yaml files
 
